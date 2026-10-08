@@ -5,7 +5,7 @@
 #include <memory>
 #include <atomic>
 
-class AudioEngine : public oboe::AudioStreamDataCallback {
+class AudioEngine : public oboe::AudioStreamDataCallback, public oboe::AudioStreamErrorCallback {
 public:
     AudioEngine();
     ~AudioEngine();
