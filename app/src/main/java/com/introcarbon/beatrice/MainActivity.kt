@@ -101,12 +101,25 @@ class MainActivity : ComponentActivity() {
         var isDownloading by remember { mutableStateOf(false) }
         var downloadProgress by remember { mutableFloatStateOf(0.0f) }
 
+        var installedModelIds by remember {
+            mutableStateOf(ModelManager.getInstalledModelIds(this@MainActivity))
+        }
+
         var inputLevel by remember { mutableFloatStateOf(0.0f) }
         var latencyMs by remember { mutableFloatStateOf(0.0f) }
+
+        DisposableEffect(Unit) {
+            installedModelIds = ModelManager.getInstalledModelIds(this@MainActivity)
+            onDispose {}
+        }
 
         // Live telemetry loop
         LaunchedEffect(isRunning) {
             while (isRunning) {
+                if (!VoiceChangerService.isServiceRunning) {
+                    isRunning = false
+                    break
+                }
                 inputLevel = BeatriceJni.getInputLevel()
                 latencyMs = BeatriceJni.getLatencyMs()
                 delay(50)
@@ -133,7 +146,10 @@ class MainActivity : ComponentActivity() {
                         titleContentColor = Color.White
                     ),
                     actions = {
-                        IconButton(onClick = { /* Refresh */ }) {
+                        IconButton(onClick = {
+                            installedModelIds = ModelManager.getInstalledModelIds(this@MainActivity)
+                            Toast.makeText(this@MainActivity, "Models refreshed", Toast.LENGTH_SHORT).show()
+                        }) {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White)
                         }
                     }
@@ -191,7 +207,7 @@ class MainActivity : ComponentActivity() {
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // 2. Big Start / Stop Button
-                val isInstalled = ModelManager.isModelInstalled(this@MainActivity, selectedModel.id)
+                val isInstalled = installedModelIds.contains(selectedModel.id)
 
                 Button(
                     onClick = {
@@ -205,6 +221,7 @@ class MainActivity : ComponentActivity() {
                                     downloadProgress = progress
                                 }
                                 isDownloading = false
+                                installedModelIds = ModelManager.getInstalledModelIds(this@MainActivity)
                                 if (success) {
                                     Toast.makeText(this@MainActivity, "Model installed!", Toast.LENGTH_SHORT).show()
                                 } else {
@@ -272,7 +289,7 @@ class MainActivity : ComponentActivity() {
 
                 ModelManager.AVAILABLE_MODELS.forEach { model ->
                     val isCurrent = model.id == selectedModel.id
-                    val isModelReady = ModelManager.isModelInstalled(this@MainActivity, model.id)
+                    val isModelReady = installedModelIds.contains(model.id)
 
                     Card(
                         modifier = Modifier
@@ -282,16 +299,20 @@ class MainActivity : ComponentActivity() {
                                 selectedModel = model
                                 pitchShift = model.defaultPitch
                                 if (isRunning) {
-                                    // Switch model on the fly
-                                    val modelDir = ModelManager.getModelDir(this@MainActivity, model.id)
-                                    val intent = Intent(this@MainActivity, VoiceChangerService::class.java).apply {
-                                        action = VoiceChangerService.ACTION_START
-                                        putExtra(VoiceChangerService.EXTRA_MODEL_PATH, modelDir.absolutePath)
-                                        putExtra(VoiceChangerService.EXTRA_MODEL_NAME, model.name)
-                                        putExtra(VoiceChangerService.EXTRA_PITCH, pitchShift)
-                                        putExtra(VoiceChangerService.EXTRA_GATE, noiseGateDb)
+                                    if (installedModelIds.contains(model.id)) {
+                                        // Switch model on the fly
+                                        val modelDir = ModelManager.getModelDir(this@MainActivity, model.id)
+                                        val intent = Intent(this@MainActivity, VoiceChangerService::class.java).apply {
+                                            action = VoiceChangerService.ACTION_START
+                                            putExtra(VoiceChangerService.EXTRA_MODEL_PATH, modelDir.absolutePath)
+                                            putExtra(VoiceChangerService.EXTRA_MODEL_NAME, model.name)
+                                            putExtra(VoiceChangerService.EXTRA_PITCH, pitchShift)
+                                            putExtra(VoiceChangerService.EXTRA_GATE, noiseGateDb)
+                                        }
+                                        ContextCompat.startForegroundService(this@MainActivity, intent)
+                                    } else {
+                                        Toast.makeText(this@MainActivity, "Please install ${model.name} first.", Toast.LENGTH_SHORT).show()
                                     }
-                                    ContextCompat.startForegroundService(this@MainActivity, intent)
                                 }
                             },
                         shape = RoundedCornerShape(12.dp),

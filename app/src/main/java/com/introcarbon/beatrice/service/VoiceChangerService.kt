@@ -48,7 +48,7 @@ class VoiceChangerService : Service {
 
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BeatriceVC::AudioWakeLock")
-        wakeLock?.acquire(10 * 60 * 1000L /* 10 hours max safety */)
+        wakeLock?.acquire(10 * 60 * 60 * 1000L /* 10 hours max safety */)
 
         BeatriceJni.initEngine()
     }

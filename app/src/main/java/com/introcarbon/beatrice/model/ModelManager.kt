@@ -55,6 +55,10 @@ object ModelManager {
         return genFile.exists() && phoneFile.exists() && pitchFile.exists()
     }
 
+    fun getInstalledModelIds(context: Context): Set<String> {
+        return AVAILABLE_MODELS.filter { isModelInstalled(context, it.id) }.map { it.id }.toSet()
+    }
+
     suspend fun downloadAndInstallModel(
         context: Context,
         modelInfo: BeatriceModelInfo,
