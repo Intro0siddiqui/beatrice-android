@@ -25,21 +25,21 @@ object ModelManager {
             name = "Model A1 (Sherlock + Takt)",
             description = "50% Cumberbatch + 50% Uchiyama (Calm Studio Baritone)",
             defaultPitch = 0.0f,
-            downloadUrl = "https://huggingface.co/Introcarbon/voice-changer-models/resolve/main/models/model_a1_sherlock_takt/beatrice_model_a1_sherlock_takt.zip"
+            downloadUrl = "https://github.com/Intro0siddiqui/beatrice-android/releases/download/v1.0.0/beatrice_model_a1_sherlock_takt.zip"
         ),
         BeatriceModelInfo(
             id = "model_a2_sherlock_nine",
             name = "Model A2 (Sherlock + Nine)",
             description = "50% Cumberbatch + 50% Ishikawa (Stoic Detached Baritone)",
             defaultPitch = 1.0f,
-            downloadUrl = "https://huggingface.co/Introcarbon/voice-changer-models/resolve/main/models/model_a2_sherlock_nine/beatrice_model_a2_sherlock_nine.zip"
+            downloadUrl = "https://github.com/Intro0siddiqui/beatrice-android/releases/download/v1.0.0/beatrice_model_a2_sherlock_nine.zip"
         ),
         BeatriceModelInfo(
             id = "model_b_twelve_l",
             name = "Model B (Twelve + L)",
             description = "50% Saitō + 50% Yamaguchi (Expressive Tenor / Countertenor)",
             defaultPitch = 0.5f,
-            downloadUrl = "https://huggingface.co/Introcarbon/voice-changer-models/resolve/main/models/model_b_twelve_l/beatrice_model_b_twelve_l.zip"
+            downloadUrl = "https://github.com/Intro0siddiqui/beatrice-android/releases/download/v1.0.0/beatrice_model_b_twelve_l.zip"
         )
     )
 
@@ -63,20 +63,26 @@ object ModelManager {
         val targetDir = getModelDir(context, modelInfo.id)
         targetDir.mkdirs()
 
-        val client = OkHttpClient.Builder().build()
+        val client = OkHttpClient.Builder()
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
         val reqBuilder = Request.Builder().url(modelInfo.downloadUrl)
         
-        // Load custom user token from preferences if private repo
+        // Load custom user token from preferences if downloading from private Hugging Face repo
         val prefs = context.getSharedPreferences("beatrice_prefs", Context.MODE_PRIVATE)
         val userToken = prefs.getString("hf_token", "") ?: ""
-        if (userToken.isNotBlank()) {
+        if (userToken.isNotBlank() && modelInfo.downloadUrl.contains("huggingface.co")) {
             reqBuilder.addHeader("Authorization", "Bearer $userToken")
         }
         val request = reqBuilder.build()
 
         try {
             val response = client.newCall(request).execute()
-            if (!response.isSuccessful) return@withContext false
+            if (!response.isSuccessful) {
+                android.util.Log.e("ModelManager", "Failed to download model ${modelInfo.id}: HTTP ${response.code} ${response.message}")
+                return@withContext false
+            }
 
             val body = response.body ?: return@withContext false
             val contentLength = body.contentLength()
